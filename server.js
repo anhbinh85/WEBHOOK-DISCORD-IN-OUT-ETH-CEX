@@ -298,6 +298,41 @@
 //                 console.log(`[Server] Batch ${blockRangeString}: No whale transactions found meeting the threshold >= ${config.whaleThresholdEth} ETH. Skipping Whale Alert report.`);
 //             }
 
+//             // --- 8. Store Batch Summary in MongoDB ---
+//             try {
+//                 if (!mongoClient) {
+//                     mongoClient = await getMongoClient();
+//                 }
+//                 if (!db) {
+//                     db = mongoClient.db(config.dbName);
+//                 }
+//                 const monitoringCollectionName = process.env.ETH_CEX_MONITORING_COLLECTION_NAME || 'ETH_CEX_MONITORING';
+//                 const monitoringCollection = db.collection(monitoringCollectionName);
+//                 const batchDoc = {
+//                     startBlock: (minBlock === Infinity) ? 0 : minBlock,
+//                     endBlock: maxBlock,
+//                     batchTimestamp: lastTimestampMs,
+//                     processedAt: new Date(),
+//                     totalCexInflowWei: totalCexInflowBatch.toString(),
+//                     totalCexOutflowWei: totalCexOutflowBatch.toString(),
+//                     cexFlows: cexFlowsArray,
+//                     txCountAnalyzed: totalTxCountInPayload,
+//                     priceInfo: priceData,
+//                     totalWhaleTxCount: totalWhaleTxCount,
+//                     totalWhaleValueWei: totalWhaleValueWei.toString(),
+//                     topWhales: topWhales.map(tx => ({
+//                         txHash: tx.txHash,
+//                         value_wei: tx.valueWeiParsed.toString(),
+//                         from: tx.from,
+//                         to: tx.to
+//                     }))
+//                 };
+//                 await monitoringCollection.insertOne(batchDoc);
+//                 console.log(`[Server] Batch ${blockRangeString}: Batch summary stored in MongoDB collection '${monitoringCollectionName}'.`);
+//             } catch (mongoStoreErr) {
+//                 console.error(`[Server] Batch ${blockRangeString}: Error storing batch summary in MongoDB:`, mongoStoreErr.message);
+//             }
+
 //         } catch (error) {
 //             const blockRangeString = (minBlock === Infinity || maxBlock === 0) ? 'N/A' : `${minBlock}-${maxBlock}`;
 //             console.error(`[Server] Unhandled error during asynchronous processing for blocks ${blockRangeString}:`, error.message);
@@ -715,6 +750,41 @@ app.post('/quicknode-webhook', async (req, res) => {
                 await sendWhaleReportToDiscord(whaleReportData);
             } else {
                 console.log(`[Server] Batch ${blockRangeString}: No whale transactions found meeting the threshold >= ${config.whaleThresholdEth} ETH or Whale webhook URL not configured. Skipping Whale Alert report.`);
+            }
+
+            // --- 8. Store Batch Summary in MongoDB ---
+            try {
+                if (!mongoClient) {
+                    mongoClient = await getMongoClient();
+                }
+                if (!db) {
+                    db = mongoClient.db(config.dbName);
+                }
+                const monitoringCollectionName = process.env.ETH_CEX_MONITORING_COLLECTION_NAME || 'ETH_CEX_MONITORING';
+                const monitoringCollection = db.collection(monitoringCollectionName);
+                const batchDoc = {
+                    startBlock: (minBlock === Infinity) ? 0 : minBlock,
+                    endBlock: maxBlock,
+                    batchTimestamp: lastTimestampMs,
+                    processedAt: new Date(),
+                    totalCexInflowWei: totalCexInflowBatch.toString(),
+                    totalCexOutflowWei: totalCexOutflowBatch.toString(),
+                    cexFlows: cexFlowsArray,
+                    txCountAnalyzed: totalTxCountInPayload,
+                    priceInfo: priceData,
+                    totalWhaleTxCount: totalWhaleTxCount,
+                    totalWhaleValueWei: totalWhaleValueWei.toString(),
+                    topWhales: topWhales.map(tx => ({
+                        txHash: tx.txHash,
+                        value_wei: tx.valueWeiParsed.toString(),
+                        from: tx.from,
+                        to: tx.to
+                    }))
+                };
+                await monitoringCollection.insertOne(batchDoc);
+                console.log(`[Server] Batch ${blockRangeString}: Batch summary stored in MongoDB collection '${monitoringCollectionName}'.`);
+            } catch (mongoStoreErr) {
+                console.error(`[Server] Batch ${blockRangeString}: Error storing batch summary in MongoDB:`, mongoStoreErr.message);
             }
 
         } catch (error) {
